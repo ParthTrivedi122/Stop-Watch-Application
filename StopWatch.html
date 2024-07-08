@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Time Vortex Stopwatch</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #stopwatch {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #fff;
+            z-index: 10;
+        }
+        #display {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
+        }
+        .controls {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+    }
+    .button-3d {
+        width: 100px;
+        height: 100px;
+        background: rgba(0, 255, 255, 0.2);
+        border: 2px solid #00ffff;
+        border-radius: 50%;
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-shadow: 0 0 5px #00ffff;
+        box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+    }
+    .button-3d:hover {
+        background: rgba(0, 255, 255, 0.4);
+        box-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff;
+        transform: scale(1.1);
+    }
+        #lapTimes {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            text-align: center;
+            max-height: 150px;
+            overflow-y: auto;
+            width: 80%;
+        }
+        #lapTimes p {
+            margin: 5px 0;
+            font-size: 16px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="stopwatch">
+            <div id="display">00:00:00.000</div>
+            <div class="controls">
+                <button id="startStop" class="button-3d">Start</button>
+                <button id="lap" class="button-3d">Lap</button>
+                <button id="reset" class="button-3d">Reset</button>
+            </div>
+        </div>
+        <div id="lapTimes"></div>
+    </div>
+
+    <script>
+        let startTime;
+        let elapsedTime = 0;
+        let timerInterval;
+        let running = false;
+        let lapCount = 1;
+
+        const display = document.getElementById('display');
+        const startStopButton = document.getElementById('startStop');
+        const lapButton = document.getElementById('lap');
+        const resetButton = document.getElementById('reset');
+        const lapTimes = document.getElementById('lapTimes');
+
+        // Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').prepend(renderer.domElement);
+
+        // Create a cosmic vortex
+        const vortexGeometry = new THREE.TorusGeometry(5, 3, 16, 100);
+        const vortexMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+        const vortex = new THREE.Mesh(vortexGeometry, vortexMaterial);
+        scene.add(vortex);
+
+        // Create particles
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 5000;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for (let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 50;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({ size: 0.005, color: 0xffffff });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        camera.position.z = 15;
+
+        // Sound effects
+        const tickSound = new Howl({
+            src: ['https://assets.codepen.io/21542/tick.mp3'],
+            volume: 0.5
+        });
+
+        const lapSound = new Howl({
+            src: ['https://assets.codepen.io/21542/lap.mp3'],
+            volume: 0.5
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            vortex.rotation.x += 0.01;
+            vortex.rotation.y += 0.005;
+
+            particlesMesh.rotation.y += 0.001;
+
+            if (running) {
+                vortex.rotation.z += 0.05;
+                particlesMesh.rotation.z += 0.01;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        function startStop() {
+            if (running) {
+                clearInterval(timerInterval);
+                startStopButton.textContent = 'Start';
+                running = false;
+            } else {
+                startTime = Date.now() - elapsedTime;
+                timerInterval = setInterval(updateTime, 10);
+                startStopButton.textContent = 'Stop';
+                running = true;
+            }
+        }
+
+        function updateTime() {
+            const currentTime = Date.now();
+            elapsedTime = currentTime - startTime;
+            display.textContent = formatTime(elapsedTime);
+            tickSound.play();
+        }
+
+        function formatTime(time) {
+            const date = new Date(time);
+            return date.toISOString().substr(11, 11);
+        }
+
+        function lap() {
+            if (running) {
+                const lapTime = document.createElement('p');
+                lapTime.textContent = `Lap ${lapCount}: ${formatTime(elapsedTime)}`;
+                lapTimes.insertBefore(lapTime, lapTimes.firstChild);
+                lapCount++;
+                lapSound.play();
+            }
+        }
+
+        function reset() {
+            clearInterval(timerInterval);
+            display.textContent = '00:00:00.000';
+            elapsedTime = 0;
+            running = false;
+            startStopButton.textContent = 'Start';
+            lapTimes.innerHTML = '';
+            lapCount = 1;
+            vortex.rotation.z = 0;
+            particlesMesh.rotation.z = 0;
+        }
+
+        startStopButton.addEventListener('click', startStop);
+        lapButton.addEventListener('click', lap);
+        resetButton.addEventListener('click', reset);
+
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
